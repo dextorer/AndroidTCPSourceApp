@@ -3,6 +3,7 @@ TCPSourceApp
 
 Android library that extracts an application's basic information given a Socket object.
 
+(more documentation to come soon)
 
 License
 =======
