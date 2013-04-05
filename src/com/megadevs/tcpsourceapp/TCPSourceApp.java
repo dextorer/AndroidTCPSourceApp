@@ -134,8 +134,8 @@ public class TCPSourceApp {
 	 * Alternative method that receives a Socket object and just extracts the 
 	 * port from it, subsequently calling the overloaded method.
 	 */
-	public static AppDescriptor getPackageFromPort(Context context, Socket socket) {
-		return getPackageFromPort(context, socket.getPort());
+	public static AppDescriptor getApplicationInfo(Context context, Socket socket) {
+		return getApplicationInfo(context, socket.getPort());
 	}
 
 	/**
@@ -152,7 +152,7 @@ public class TCPSourceApp {
 	 * if no application could be found
 	 */
 	@SuppressWarnings("unused")
-	public static AppDescriptor getPackageFromPort(Context context, int port) {
+	public static AppDescriptor getApplicationInfo(Context context, int port) {
 
 		File tcp;
 		BufferedReader reader;
