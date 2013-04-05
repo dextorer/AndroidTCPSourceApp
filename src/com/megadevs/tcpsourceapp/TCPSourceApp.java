@@ -36,6 +36,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.Socket;
 import java.net.SocketException;
 import java.util.Collections;
 import java.util.List;
@@ -50,141 +51,160 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 
+/**
+ * Main class for the TCPSourceApp library. 
+ * @author Sebastiano Gottardo
+ *
+ */
 public class TCPSourceApp {
 
+	/*
+	 * This class represents an Android application. Each application is 
+	 * uniquely identified by its package name (e.g. com.megadevs.tcpsourceapp)
+	 * and its version (e.g. 1.0).
+	 */
 	public static class AppDescriptor {
 
 		private String packageName;
 		private String version;
-		private String baseURL;
-		
-		public AppDescriptor(String pName, String ver, String base) {
+
+		public AppDescriptor(String pName, String ver) {
 			packageName = pName;
 			version = ver;
-			baseURL = base;
 		}
-		
+
 		public String getPackageName() {
 			return packageName;
 		}
-		
+
 		public String getVersion() {
 			return version;
 		}
-		
-		public String getBaseURL() {
-			return baseURL;
-		}
-		
-		public void setBaseURL(String base) {
-			baseURL = base;
-		}
-		
+
+		/*
+		 * Override of the 'equals' method, in order to have a proper 
+		 * comparison between two AppDescriptor objects.
+		 * 
+		 * (non-Javadoc)
+		 * @see java.lang.Object#equals(java.lang.Object)
+		 */
 		@Override
 		public boolean equals(Object o) {
+
 			if (o instanceof AppDescriptor) {
 				boolean c1 = ((AppDescriptor) o).packageName.compareTo(this.packageName) == 0;
 				boolean c2 = ((AppDescriptor) o).version.compareTo(this.version) == 0;
-				boolean c3 = ((AppDescriptor) o).baseURL.compareTo(this.baseURL) == 0;
-				
-				return c1 && c2 && c3;
+
+				return c1 && c2;
 			}
-		
+
 			return false;
 		}
-		
+
 	}
-	
+
+	/*
+	 * In a Linux-based OS, each active TCP socket is mapped in the following
+	 * two files. A socket may be mapped in the '/proc/net/tcp' file in case
+	 *  of a simple IPv4 address, or in the '/proc/net/tcp6' if an IPv6 address
+	 *  is available.
+	 */
 	private static final String TCP_4_FILE_PATH 	= "/proc/net/tcp";
 	private static final String TCP_6_FILE_PATH 	= "/proc/net/tcp6";
-	
-	// (address) (port) (pid)
+
+	/*
+	 * Two regular expressions that are able to extract valuable informations
+	 * from the two /proc/net/tcp* files. More specifically, there are three
+	 * fields that are extracted:
+	 * 	- address
+	 * 	- port
+	 * 	- PID
+	 */
 	private static final String TCP_6_PATTERN 	= "\\d:\\s([0-9A-F]{32}):([0-9A-F]{4})\\s[0-9A-F]{32}:[0-9A-F]{4}\\s[0-9A-F]{2}\\s[0-9]{8}:[0-9]{8}\\s[0-9]{2}:[0-9]{8}\\s[0-9]{8}\\s([0-9]+)";
-	
-	// (address) (port) (pid)
 	private static final String TCP_4_PATTERN 	= "\\d:\\s([0-9A-F]{8}):([0-9A-F]{4})\\s[0-9A-F]{8}:[0-9A-F]{4}\\s[0-9A-F]{2}\\s[0-9A-F]{8}:[0-9A-F]{8}\\s[0-9]{2}:[0-9]{8}\\s[0-9A-F]{8}\\s\\s([0-9]+)";
 
-	
+	/*
+	 * Optimises the socket lookup by checking if the connected network 
+	 * interface has a 'valid' IPv6 address (a global address, not a link-local
+	 * one). 
+	 */
+	private static boolean checkConnectedIfaces	= true;
+
+	/*
+	 * Alternative method that receives a Socket object and just extracts the 
+	 * port from it, subsequently calling the overloaded method.
+	 */
+	public static AppDescriptor getPackageFromPort(Context context, Socket socket) {
+		return getPackageFromPort(context, socket.getPort());
+	}
+
+	/**
+	 * The main method of the TCPSourceApp library. This method receives an 
+	 * Android Context instance, which is used to access the PackageManager.
+	 * It parses the /proc/net/tcp* files, looking for a socket entry that 
+	 * matches the given port. If it finds an entry, this method extracts the 
+	 * PID value and it uses the PackageManager.getPackagesFromPid() method to
+	 * find the originating application.  
+	 * 
+	 * @param context a valid Android Context instance
+	 * @param port the (logical) port of the socket 
+	 * @return an AppDescriptor object, representing the found application; null
+	 * if no application could be found
+	 */
 	@SuppressWarnings("unused")
 	public static AppDescriptor getPackageFromPort(Context context, int port) {
+
+		File tcp;
+		BufferedReader reader;
+		String line;
+		StringBuilder builder;
+		String content;
+
 		try {
-			
-			String ipv4Address = getIPAddress(true);
-			String ipv6Address = getIPAddress(false);
+			boolean hasIPv6 = true;
 
-			boolean hasIPv6 = (ipv6Address.length() > 0); //TODO use this value to skip ipv6 check, eventually
-			
-			File tcp = new File(TCP_6_FILE_PATH);
-			BufferedReader reader = new BufferedReader(new FileReader(tcp));
-			String line = "";
-			StringBuilder builder = new StringBuilder();
-			
-			while ((line = reader.readLine()) != null) {
-				builder.append(line);
-			}
-			
-			String content = builder.toString();
-			
-			Matcher m6 = Pattern.compile(TCP_6_PATTERN, Pattern.CASE_INSENSITIVE | Pattern.UNIX_LINES | Pattern.DOTALL).matcher(content);
-			
-			while (m6.find()) {
-				String addressEntry = m6.group(1);
-				String portEntry 	= m6.group(2);
-				int pidEntry 	= Integer.valueOf(m6.group(3));
-				
-				if (Integer.parseInt(portEntry, 16) == port) {
-					
-					PackageManager manager = context.getPackageManager();
-					String[] packagesForUid = manager.getPackagesForUid(pidEntry);
-					
-					if (packagesForUid != null) {
-						String packageName = packagesForUid[0];
-						PackageInfo pInfo = manager.getPackageInfo(packageName, 0);
-						String version = pInfo.versionName;
+			// if true, checks for a connected network interface with a valid
+			// IPv4 / IPv6 address
+			if (checkConnectedIfaces) {
+				String ipv4Address = getIPAddress(true);
+				String ipv6Address = getIPAddress(false);
 
-						return new AppDescriptor(packageName, version, null);
-					}
-				}
-				
+				hasIPv6 = (ipv6Address.length() > 0);
 			}
-			
-			// this means that no connection with that port could be found in the tcp6 file
-			// try the tcp one
-			
-			tcp = new File(TCP_4_FILE_PATH);
+
+			tcp = new File(TCP_6_FILE_PATH);
 			reader = new BufferedReader(new FileReader(tcp));
 			line = "";
 			builder = new StringBuilder();
-			
+
 			while ((line = reader.readLine()) != null) {
 				builder.append(line);
 			}
-			
-			content = builder.toString();
-			
-			Matcher m4 = Pattern.compile(TCP_4_PATTERN, Pattern.CASE_INSENSITIVE | Pattern.UNIX_LINES | Pattern.DOTALL).matcher(content);
-			
-			while (m4.find()) {
-				String addressEntry = m4.group(1);
-				String portEntry 	= m4.group(2);
-				int pidEntry 	= Integer.valueOf(m4.group(3));
-				
-				portEntry = convertHexToString(portEntry); // hex to ascii
-				
-				if (Integer.valueOf(portEntry) == port) {
-					PackageManager manager = context.getPackageManager();
-					String[] packagesForUid = manager.getPackagesForUid(pidEntry);
-					
-					if (packagesForUid != null) {
-						String packageName = packagesForUid[0];
-						PackageInfo pInfo = manager.getPackageInfo(packageName, 0);
-						String version = pInfo.versionName;
 
-						return new AppDescriptor(packageName, version, null);
+			content = builder.toString();
+
+			Matcher m6 = Pattern.compile(TCP_6_PATTERN, Pattern.CASE_INSENSITIVE | Pattern.UNIX_LINES | Pattern.DOTALL).matcher(content);
+
+			if (hasIPv6)
+				while (m6.find()) {
+					String addressEntry = m6.group(1);
+					String portEntry 	= m6.group(2);
+					int pidEntry 		= Integer.valueOf(m6.group(3));
+
+					if (Integer.parseInt(portEntry, 16) == port) {
+						PackageManager manager = context.getPackageManager();
+						String[] packagesForUid = manager.getPackagesForUid(pidEntry);
+
+						if (packagesForUid != null) {
+							String packageName = packagesForUid[0];
+							PackageInfo pInfo = manager.getPackageInfo(packageName, 0);
+							String version = pInfo.versionName;
+
+							return new AppDescriptor(packageName, version);
+						}
 					}
 				}
-			}
-			
+
 		} catch (SocketException e) {
 			e.printStackTrace();
 		} catch (FileNotFoundException e) {
@@ -193,43 +213,74 @@ public class TCPSourceApp {
 			e.printStackTrace();
 		} catch (NameNotFoundException e) {
 			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		// From here, no connection with the given port could be found in the tcp6 file
+		// So let's try the tcp (IPv4) one 
+
+		try {
+			tcp = new File(TCP_4_FILE_PATH);
+			reader = new BufferedReader(new FileReader(tcp));
+			line = "";
+			builder = new StringBuilder();
+
+			while ((line = reader.readLine()) != null) {
+				builder.append(line);
+			}
+
+			content = builder.toString();
+
+			Matcher m4 = Pattern.compile(TCP_4_PATTERN, Pattern.CASE_INSENSITIVE | Pattern.UNIX_LINES | Pattern.DOTALL).matcher(content);
+
+			while (m4.find()) {
+				String addressEntry = m4.group(1);
+				String portEntry 	= m4.group(2);
+				int pidEntry 	= Integer.valueOf(m4.group(3));
+
+				if (Integer.parseInt(portEntry, 16) == port) {
+					PackageManager manager = context.getPackageManager();
+					String[] packagesForUid = manager.getPackagesForUid(pidEntry);
+
+					if (packagesForUid != null) {
+						String packageName = packagesForUid[0];
+						PackageInfo pInfo = manager.getPackageInfo(packageName, 0);
+						String version = pInfo.versionName;
+
+						return new AppDescriptor(packageName, version);
+					}
+				}
+			}
+
+		} catch (SocketException e) {
+			e.printStackTrace();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (NameNotFoundException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 		return null;
 	}
-	
-	private static String convertHexToString(String hex) {
-		 
-		  StringBuilder sb = new StringBuilder();
-		  StringBuilder temp = new StringBuilder();
-	 
-		  //49204c6f7665204a617661 split into two characters 49, 20, 4c...
-		  for( int i=0; i<hex.length()-1; i+=2 ){
-	 
-		      //grab the hex in pairs
-		      String output = hex.substring(i, (i + 2));
-		      //convert hex to decimal
-		      int decimal = Integer.parseInt(output, 16);
-		      //convert the decimal to character
-		      sb.append((char)decimal);
-	 
-		      temp.append(decimal);
-		  }
-	 
-		  return sb.toString();
-	  }
-	
-	
+
 	@SuppressLint("DefaultLocale")
 	public static String getIPAddress(boolean useIPv4) throws SocketException {
+
 		List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+
 		for (NetworkInterface intf : interfaces) {
 			List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+
 			for (InetAddress addr : addrs) {
 				if (!addr.isLoopbackAddress()) {
 					String sAddr = addr.getHostAddress().toUpperCase();
 					boolean isIPv4 = InetAddressUtils.isIPv4Address(sAddr);
-					
+
 					if (useIPv4) {
 						if (isIPv4) 
 							return sAddr;
@@ -237,17 +288,23 @@ public class TCPSourceApp {
 						if (!isIPv4) {
 							if (sAddr.startsWith("fe80") || sAddr.startsWith("FE80")) // skipping link-local addresses
 								continue;
-							
+
 							int delim = sAddr.indexOf('%'); // drop ip6 port suffix
-							return delim<0 ? sAddr : sAddr.substring(0, delim);
+							return delim < 0 ? sAddr : sAddr.substring(0, delim);
 						}
 					}
 				}
 			}
 		}
-		
+
 		return "";
 	}
 
-	
+	/*
+	 * Sets the connected interfaces optimisation.
+	 */
+	public static void setCheckConnectedIfaces(boolean value) {
+		checkConnectedIfaces = value;
+	}
+
 }
