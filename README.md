@@ -4,8 +4,7 @@ AndroidTCPSourceApp
 Simple and performant Android library that extracts an application's basic information,
 given a Socket object.
 
-What is it
-----------
+## What is it ##
 
 This library is particularly useful for Android developers who are working on proxies.
 The typical scenario consists in accepting the incoming connections with the 
@@ -13,8 +12,7 @@ ServerSocket.accept() method, which returns a Socket object. Since there is no e
 for the developer to know to which application that Socket belongs (i.e. which application
 initiated the connection), the AndroidTCPSourceApp is the way to go.
 
-How does it work
-----------------
+## How does it work ##
 
 It is based on the fact that each socket is mapped as an entry on a file, called 
 /proc/net/tcp (or /proc/net/tcp6 for IPv6-based connections).
@@ -28,17 +26,20 @@ Basically, the main method of the library performs the following steps:
    4. By calling the Android PackageManager.getPackagesFromPid() method with the newly found PID, 
    we can obtain the unique information about the source application, such as package name and application version
 
-How to use it
--------------
+## How to use it ##
 
 After importing the AndroidTCPSourceApp into your Android project, all you have to do is invoke the static method
 
-   TCPSourceApp.getApplicationInfo(Context, Socket)
-   
+```
+TCPSourceApp.getApplicationInfo(Context, Socket)
+```
+
 Alternatively, you can call the overloaded method passing directly the Socket's port as an int value
-   
-   TCPSourceApp.getApplicationInfo(Context, int)
-   
+
+```
+TCPSourceApp.getApplicationInfo(Context, int)
+```
+
 The result of this method is an AppDescriptor object, which is just a container for the unique identifiers 
 of an Android application: the package name (e.g. com.megadevs.tcpsourceapp) and the application version (e.g. 1.0).
 
@@ -49,8 +50,10 @@ Typically, the /proc/net/tcp (or tcp6) file is no longer than 50 entries, so the
 adding almost no overhead to the whole procedure.
 
 For the hardcore optimisers, there is a convenience method called 
-   
-   TCPSourceApp.setCheckConnectedIfaces(boolean)
+
+```
+TCPSourceApp.setCheckConnectedIfaces(boolean)
+```
    
 which basically tells the library to check if there are IPv6 addresses (global, not link-local) available for at least
 one of the connected network interfaces, therefore avoiding useless parsing of the tcp6 file when no IPv6 connection
