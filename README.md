@@ -31,17 +31,22 @@ Basically, the main method of the library performs the following steps:
 After importing the AndroidTCPSourceApp into your Android project, all you have to do is invoke the static method
 
 ```
-TCPSourceApp.getApplicationInfo(Context, Socket)
+AppDescriptor desc = TCPSourceApp.getApplicationInfo(Context, Socket)
 ```
 
 Alternatively, you can call the overloaded method passing directly the Socket's port as an int value
 
 ```
-TCPSourceApp.getApplicationInfo(Context, int)
+AppDescriptor desc = TCPSourceApp.getApplicationInfo(Context, int)
 ```
 
 The result of this method is an AppDescriptor object, which is just a container for the unique identifiers 
 of an Android application: the package name (e.g. com.megadevs.tcpsourceapp) and the application version (e.g. 1.0).
+
+```
+String appPackageName   = desc.getPackageName();
+String appVersion       = desc.getVersion();
+```
 
 How does it perform
 -------------------
