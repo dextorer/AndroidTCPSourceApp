@@ -120,8 +120,8 @@ public class TCPSourceApp {
 	 * 	- port
 	 * 	- PID
 	 */
-	private static final String TCP_6_PATTERN 	= "\\d:\\s([0-9A-F]{32}):([0-9A-F]{4})\\s[0-9A-F]{32}:[0-9A-F]{4}\\s[0-9A-F]{2}\\s[0-9]{8}:[0-9]{8}\\s[0-9]{2}:[0-9]{8}\\s[0-9]{8}\\s([0-9]+)";
-	private static final String TCP_4_PATTERN 	= "\\d:\\s([0-9A-F]{8}):([0-9A-F]{4})\\s[0-9A-F]{8}:[0-9A-F]{4}\\s[0-9A-F]{2}\\s[0-9A-F]{8}:[0-9A-F]{8}\\s[0-9]{2}:[0-9]{8}\\s[0-9A-F]{8}\\s\\s([0-9]+)";
+	private static final String TCP_6_PATTERN 	= "\\d+:\\s([0-9A-F]{32}):([0-9A-F]{4})\\s[0-9A-F]{32}:[0-9A-F]{4}\\s[0-9A-F]{2}\\s[0-9]{8}:[0-9]{8}\\s[0-9]{2}:[0-9]{8}\\s[0-9]{8}\\s+([0-9]+)";
+	private static final String TCP_4_PATTERN 	= "\\d+:\\s([0-9A-F]{8}):([0-9A-F]{4})\\s[0-9A-F]{8}:[0-9A-F]{4}\\s[0-9A-F]{2}\\s[0-9A-F]{8}:[0-9A-F]{8}\\s[0-9]{2}:[0-9]{8}\\s[0-9A-F]{8}\\s+([0-9]+)";
 
 	/*
 	 * Optimises the socket lookup by checking if the connected network 
